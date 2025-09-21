@@ -1,4 +1,4 @@
-from model import avlNodo
+from model.avlNode import avlNode
 
 class avlTree:
     def __init__(self):
@@ -10,30 +10,39 @@ class avlTree:
         if node is not None:
             print(f"Node with coordinates ({x}, {y}) already exists.")
         else:
-            newNode = avlNodo(x, y, obstacle)
             if self.root is None:
-                self.root = newNode
+                self.root = avlNode(x,y, obstacle)
             else:
-                self._insert(self.root, newNode)
+                self.root = self._insert(self.root, x,y, obstacle)
 
-    def _insert(self, currentNode, newNode):
-        if newNode.key < currentNode.key:
-            if currentNode.left is None:
-                currentNode.left = newNode
-                newNode.parent = currentNode
-            else:
-                self._insert(currentNode.left, newNode)
+    def _insert(self, node, x, y, obstacle):
+        if not node:
+            return avlNode(x,y, obstacle)
+        
+        if (x,y) < node.key:
+            node.left = self._insert(node.left, x,y,obstacle)
+            if node.left:
+                node.left.parent = node #Keep parent references for new nodes
+
         else:
-            if currentNode.right is None:
-                currentNode.right = newNode
-                newNode.parent = currentNode
-            else:
-                self._insert(currentNode.right, newNode)
+            node.right = self._insert(node.right, x,y,obstacle)
+            if node.right:
+                node.right.parent = node
 
+        #AVL Balance
+        
+        #Height for the new node
+        node.height = 1 + max(self.getHeight(node.left), self.getHeight(node.right))
+        
+        #Balance for the new node
+        balance = self.getBalance(node)
+
+        node = self.imbalanceCases(node)
+        return node
+    
     # Implementation of search for a node with given coordinates
     def search(self, x: float, y: int):
         if self.root is None:
-            print("The tree is empty.")
             return None
         else:
             return self._search(self.root, x, y)
@@ -76,12 +85,15 @@ class avlTree:
             self._delete(nodeToDelete)
     
     def _delete(self, nodeToDelete):
-        # Case 1: Node to delete has no children (leaf node)
+        # Case 1: Leaf, no children
         if nodeToDelete.left is None and nodeToDelete.right is None:
+            parent = nodeToDelete.parent
             self._replaceNode(nodeToDelete, None)
+            if parent:  # avoid empty tree case 
+                self._rebalanceUp(parent)
             return
         
-        # Case 2: Node to delete has two children
+        # Case 2: two children
         if nodeToDelete.left is not None and nodeToDelete.right is not None:
             predecessor = self._findPredecessor(nodeToDelete)
             if predecessor.parent != nodeToDelete: # If predecessor is not the direct child of nodeToDelete
@@ -91,56 +103,176 @@ class avlTree:
             self._replaceNode(nodeToDelete, predecessor)
             predecessor.right = nodeToDelete.right
             predecessor.right.parent = predecessor
+            self._rebalanceUp(predecessor)
             return
         
-        # Case 3: Node to delete has one child
-        if nodeToDelete.left is not None:
-            self._replaceNode(nodeToDelete, nodeToDelete.left)
-        else:
-            self._replaceNode(nodeToDelete, nodeToDelete.right)
-
-    # Implementation of AVL balancing
-    def _detectImbalance(self, node):
-        if node is None:
+        # Case 3: one child  
+        #Child, verifies if exist a left child if not, takes the right one
+        #yes or yes there will be a child 
+        child = nodeToDelete.left if nodeToDelete.left else nodeToDelete.right
+        self._replaceNode(nodeToDelete, child)
+        self._rebalanceUp(child)
+    
+            
+    def getHeight(self, node):
+        if not node:
             return 0
-        if balanceFactor > 1 or balanceFactor < -1:
-            print(f"Imbalance detected at node {node.key} with balance factor {balanceFactor}")
-            return node
-        self.detectImbalance(node.left)
-        self.detectImbalance(node.right)
-        node.height = 1 + max(node.left.height, node.right.height)
-        balanceFactor = node.left.height - node.right.height
-        return balanceFactor
+        return node.height
+    
+    def getBalance(self, node):
+        if not node:
+            return 0
+        return self.getHeight(node.left) - self.getHeight(node.right)
+    
+    def _rebalanceUp(self, node):
+        """
+        Walk up from `node` to root, updating heights and rebalancing.
+        Ensures the parent's child pointer is updated after a rotation.
+        """
+        while node:
+            # update height
+            node.height = 1 + max(self.getHeight(node.left), self.getHeight(node.right))
 
+            # store parent BEFORE rebalance (because rebalance may change node.parent)
+            parent = node.parent
+
+            # rebalance this subtree; imbalanceCases returns the new root of this subtree
+            new_subroot = self.imbalanceCases(node)
+
+            # attach new_subroot to parent (or set as tree root)
+            if parent is None:
+                # this subtree is at top level -> update global root
+                self.root = new_subroot
+                if new_subroot:
+                    new_subroot.parent = None
+            else:
+                # attach to the correct side of parent
+                if parent.left is node:
+                    parent.left = new_subroot
+                else:
+                    parent.right = new_subroot
+                if new_subroot:
+                    new_subroot.parent = parent
+
+            # move up
+            node = parent
+      
+    # Cases for imbalance
+    def imbalanceCases(self, node):
+        """
+        Rebalance this subtree rooted at `node` and return the new root of the subtree.
+        Uses child balances (standard AVL logic), so it is safe tanto para insert como delete.
+        """
+        if node is None:
+            return node
+
+        balance = self.getBalance(node)
+
+        # LEFT heavy
+        if balance > 1:
+            # if left child is left-heavy or balanced -> LL
+            if self.getBalance(node.left) >= 0:
+                print(f"LL Rotation at node {node.key}")
+                return self.rightRotation(node)
+            else:
+                # LR case
+                print(f"LR Rotation at node {node.key}")
+                node.left = self.leftRotation(node.left)
+                if node.left:
+                    node.left.parent = node
+                return self.rightRotation(node)
+
+        # RIGHT heavy
+        if balance < -1:
+            # if right child is right-heavy or balanced -> RR
+            if self.getBalance(node.right) <= 0:
+                print(f"RR Rotation at node {node.key}")
+                return self.leftRotation(node)
+            else:
+                # RL case
+                print(f"RL Rotation at node {node.key}")
+                node.right = self.rightRotation(node.right)
+                if node.right:
+                    node.right.parent = node
+                return self.leftRotation(node)
+
+        # no change needed
+        return node
+
+        
+    
+    def rightRotation(self, node):
+        newRoot = node.left
+        temp = newRoot.right
+                                                        
+        # Rotate
+        newRoot.right = node
+        node.left = temp
+
+        # Update parents
+        if temp:
+            temp.parent = node
+        newRoot.parent = node.parent
+        node.parent = newRoot
+
+        # Update heights
+        node.height = 1 + max(self.getHeight(node.left), self.getHeight(node.right))
+        newRoot.height = 1 + max(self.getHeight(newRoot.left), self.getHeight(newRoot.right))
+
+        return newRoot
+    
+    def leftRotation(self, node):
+        newRoot = node.right
+        temp = newRoot.left
+
+        # Rotate
+        newRoot.left = node
+        node.right = temp
+
+        # Update parents
+        if temp:
+            temp.parent = node
+        newRoot.parent = node.parent
+        node.parent = newRoot
+
+        # Update heights
+        node.height = 1 + max(self.getHeight(node.left), self.getHeight(node.right))
+        newRoot.height = 1 + max(self.getHeight(newRoot.left), self.getHeight(newRoot.right))
+
+        return newRoot
+      
     # Preorder traversal of the tree
     def preorderTraversal(self, node=None):
         if node is None:
             node = self.root
-        print(node.key, end=' ')
-        if node.left:
-            self.preorderTraversal(node.left)
-        if node.right:
-            self.preorderTraversal(node.right)
+        if node is  not None:
+            print(node.key, end=' ')
+            if node.left:
+                self.preorderTraversal(node.left)
+            if node.right:
+                self.preorderTraversal(node.right)
 
     # Inorder traversal of the tree
     def inorderTraversal(self, node=None):
         if node is None:
             node = self.root
-        if node.left:
-            self.inorderTraversal(node.left)
-        print(node.key, end=' ')
-        if node.right:
-            self.inorderTraversal(node.right)
+        if node is not None:
+            if node.left:
+                self.inorderTraversal(node.left)
+            print(node.key, end=' ')
+            if node.right:
+                self.inorderTraversal(node.right)
 
     # Postorder traversal of the tree
     def postorderTraversal(self, node=None):
         if node is None:
             node = self.root
-        if node.left:
-            self.postorderTraversal(node.left)
-        if node.right:
-            self.postorderTraversal(node.right)
-        print(node.key, end=' ')
+        if node is not None:
+            if node.left:
+                self.postorderTraversal(node.left)
+            if node.right:
+                self.postorderTraversal(node.right)
+            print(node.key, end=' ')
 
     # Level order traversal of the tree
     def levelOrderTraversal(self):
@@ -154,3 +286,26 @@ class avlTree:
                 queue.append(current.left)
             if current.right:
                 queue.append(current.right)
+
+    def print_tree(self, node=None, prefix="", is_left=True):
+        if node is None:
+            node = self.root
+        if node is None:  # Empty tree
+            print("Tree is empty")
+            return
+
+        # Print right subtree
+        if node.right:
+            new_prefix = prefix + ("│   " if is_left else "    ")
+            self.print_tree(node.right, new_prefix, False)
+
+        # Print current node (show key instead of value)
+        connector = "└── " if is_left else "┌── "
+        print(prefix + connector + str(node.key))
+
+        # Print left subtree
+        if node.left:
+            new_prefix = prefix + ("    " if is_left else "│   ")
+            self.print_tree(node.left, new_prefix, True)
+
+

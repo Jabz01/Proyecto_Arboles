@@ -1,4 +1,4 @@
-class avlNodo:
+class avlNode:
     def __init__(self, x: float, y: int, obstacle):
         self.x = x
         self.y = y
