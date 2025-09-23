@@ -3,7 +3,7 @@
         "speed": 10,                  
         "jumpDistance": 50,          
         "carColor": "#FF0000",        
-        "totalDistance": 5000,       
+        "totalDistance": 2000,       
         "refreshMS": 16              
     },
     "coment": {

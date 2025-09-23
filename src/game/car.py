@@ -11,64 +11,65 @@ class Car:
         Initializes the Car object.
 
         Args:
-            x (int): Initial horizontal position of the car.
-            y (int): Initial vertical position of the car.
-            sprite_path (str): Path to the car's sprite image.
-            config (dict): Configuration dictionary loaded from config.json.
-                           Must contain 'speed', 'jumpDistance', and 'carColor'.
-            energy_max (int): Maximum energy (health) of the car.
+            x (int): Initial horizontal position
+            y (int): Initial vertical position
+            sprite_path (str): path to car sprite
+            config (dict): configuration dictionary loaded from config.json. have speed, jumpDistance and energy
+            energy_max (int): max health of the car.
         """
         self.x = x
         self.y = y
-        self.speed = config.get("speed", 5)
-        self.jump_distance = config.get("jumpDistance", 50)
-        self.color = config.get("carColor", "#FFFFFF")
+        self.speed = config["speed"]
+        self.jump_distance = config["jumpDistance"]
+        self.color = config["carColor"]
         self.energy = energy_max
         self.energy_max = energy_max
 
-        # Load sprite and set position
-        self.sprite = pygame.image.load(sprite_path).convert_alpha()
+        # Load normal and jump sprites
+        self.normal_sprite = pygame.image.load(sprite_path).convert_alpha()
+        self.jump_sprite = self._create_brighter_sprite(self.normal_sprite)
+        self.sprite = self.normal_sprite
         self.rect = self.sprite.get_rect(topleft=(self.x, self.y))
 
         # Jump state
         self.is_jumping = False
         self.jump_remaining = 0
 
-    def move_up(self, lane_height: int):
+    def _create_brighter_sprite(self, base_sprite: pygame.Surface) -> pygame.Surface:
         """
-        Moves the car up by one lane.
+        make the car brighter if is jumping
 
         Args:
-            lane_height (int): Height in pixels of each lane.
+            base_sprite (pygame.Surface): Original car sprite.
+
+        Returns:
+            pygame.Surface: Brightened sprite surface.
         """
+        bright_sprite = base_sprite.copy()
+        bright_overlay = pygame.Surface(bright_sprite.get_size(), flags=pygame.SRCALPHA)
+        bright_overlay.fill((255, 255, 255, 80))  # White overlay with alpha
+        bright_sprite.blit(bright_overlay, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
+        return bright_sprite
+
+    def move_up(self, lane_height: int):
+        """Moves the car up by one lane."""
         self.y -= lane_height
         self.rect.y = self.y
 
     def move_down(self, lane_height: int):
-        """
-        Moves the car down by one lane.
-
-        Args:
-            lane_height (int): Height in pixels of each lane.
-        """
+        """Moves the car down by one lane."""
         self.y += lane_height
         self.rect.y = self.y
 
     def jump(self):
-        """
-        Initiates a jump.
-        The car will move forward by jumpDistance and be invulnerable
-        to obstacles during the jump.
-        """
+        """Initiates a jump with temporary invulnerability."""
         self.is_jumping = True
         self.jump_remaining = self.jump_distance
 
     def update(self):
         """
         Updates the car's position.
-        If jumping, moves forward by jumpDistance over time and
-        disables collision detection until jump ends.
-        Otherwise, moves forward at normal speed.
+        Handles jump movement and resets jump state when complete.
         """
         if self.is_jumping:
             step = min(self.jump_remaining, self.speed)
@@ -98,17 +99,14 @@ class Car:
     def draw(self, surface: pygame.Surface):
         """
         Draws the car sprite on the given surface.
+        Uses bright sprite if jumping.
 
         Args:
             surface (pygame.Surface): The surface to draw the car on.
         """
-        surface.blit(self.sprite, (self.x, self.y))
+        current_sprite = self.jump_sprite if self.is_jumping else self.normal_sprite
+        surface.blit(current_sprite, (self.x, self.y))
 
     def is_alive(self) -> bool:
-        """
-        Checks if the car still has energy.
-
-        Returns:
-            bool: True if energy > 0, False otherwise.
-        """
+        """Returns True if the car still has energy."""
         return self.energy > 0
