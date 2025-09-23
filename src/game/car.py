@@ -1,11 +1,12 @@
 import pygame
+import time
 
 class Car:
     """
     Represents the player's car in the game.
     Handles movement, jumping, collisions, and rendering.
     """
-
+    INVULNERABILITY_SECONDS = 0.5  
     def __init__(self, x: int, y: int, sprite_path: str, config: dict, energy_max: int = 100):
         """
         Initializes the Car object.
@@ -81,20 +82,29 @@ class Car:
             self.x += self.speed
 
         self.rect.x = self.x
-
-    def collide(self, obstacle: dict):
+    def collide(self, obstacle: dict) -> bool:
         """
-        Handles collision with an obstacle.
+        Handle collision with an obstacle, applying damage only if not jumping
+        and not within an invulnerability window.
 
-        Args:
-            obstacle (dict): Obstacle data containing 'damage' and 'type'.
+        Returns True if damage was applied, False otherwise.
         """
-        if not self.is_jumping:
-            damage = obstacle.get("damage", 0)
-            self.energy -= damage
-            if self.energy < 0:
-                self.energy = 0
+        now = time.time()
+        if self.is_jumping:
+            return False
+
+        # still invulnerable after previous hit
+        if now - getattr(self, "_last_hit_time", 0.0) < self.INVULNERABILITY_SECONDS:
+            return False
+
+        damage = obstacle.get("damage", 0)
+        energy_before = self.energy
+        self.energy = max(0, self.energy - damage)
+        damaged = self.energy < energy_before
+        if damaged:
+            self._last_hit_time = now
             print(f"💥 Collision with {obstacle.get('type', 'unknown')}, energy left: {self.energy}")
+        return damaged
 
     def draw(self, surface: pygame.Surface):
         """

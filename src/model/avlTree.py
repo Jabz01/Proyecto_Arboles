@@ -1,4 +1,4 @@
-from model.avlNode import avlNode
+from src.model.avlNode import avlNode
 
 class avlTree:
     def __init__(self):
