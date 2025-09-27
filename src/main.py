@@ -1,11 +1,11 @@
 # src/main.py
 
 import pygame
-from gui.mainWindow import main
+from gui.mainWindow import mainWindow
 def main():
     pygame.init()
     try:
-        main()
+        mainWindow()
     except Exception as e:
         print(f"[Error] El juego encontró un problema: {e}")
     finally:

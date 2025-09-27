@@ -53,7 +53,7 @@ def screen_to_world(mouse_x, mouse_y, engine):
     return (world_x, world_y), True
 
 # --- Main ---
-def main():
+def mainWindow():
     pygame.init()
     screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
     pygame.display.set_caption("Main Window - Game Test")
@@ -204,7 +204,7 @@ def main():
 
         # Game area background (draw road placeholder or background image if available)
         try:
-            bg = pygame.image.load("assets/roda.png").convert()
+            bg = pygame.image.load("assets/road.png").convert()
             screen.blit(bg, (0, HUD_HEIGHT))
         except Exception:
             pygame.draw.rect(screen, (80,80,80), pygame.Rect(0, HUD_HEIGHT, WINDOW_WIDTH, GAME_AREA_HEIGHT))
@@ -265,4 +265,4 @@ def main():
     sys.exit()
 
 if __name__ == "__main__":
-    main()
+    mainWindow()
