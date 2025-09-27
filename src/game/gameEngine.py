@@ -1,7 +1,7 @@
 from typing import List, Dict, Optional, Tuple
-from model.avlTree import avlTree
 from game.car import Car
 from utils.configLoader import load_config
+from game.obstacleManager import ObstacleManager
 import pygame
 
 class GameState:
@@ -29,7 +29,6 @@ class GameEngine:
         self.car_sprite_path = car_sprite_path  # Store sprite path
         self.config, self.obstacles_data = load_config(config_path)
         self.car = Car(start_x, start_y, car_sprite_path, self.config)
-        self.tree = avlTree()
         self.screen_width = screen_width
         self.total_distance = self.config.get("totalDistance", 1000)
 
@@ -40,10 +39,6 @@ class GameEngine:
         self.on_state_change = None         # optional callback(new_state)
         self.on_obstacle_placed = None      # optional callback(obs)
 
-        # caches and active list
-        self._sprite_cache: Dict[str, pygame.Surface] = {}
-        self._active_obstacles: List[Dict] = []
-
         # road bounds from config (world coords)
         road_cfg = self.config.get("road", {})
         self.road_x_min = road_cfg.get("x_min", 0.0)
@@ -51,8 +46,10 @@ class GameEngine:
         self.road_y_min = road_cfg.get("y_min", 0)      # top of road in game-area coords
         self.road_y_max = road_cfg.get("y_max", 500)    # default game area height
 
-        # load initial obstacles
-        self._load_obstacles()
+        # obstacle management: central manager holds AVL, list and sprite cache
+        self.obstacle_manager = ObstacleManager()
+        self.obstacle_manager.load_from_list(self.obstacles_data)
+
 
     # ---------------- State management ---------------------------------
     def _set_state(self, new_state: str):
@@ -96,15 +93,14 @@ class GameEngine:
         self.config, self.obstacles_data = load_config(self.config_path)
         # Use stored sprite path instead of getattr
         self.car = Car(0, 31, self.car_sprite_path, self.config)
-        self.tree = avlTree()
-        self._sprite_cache = {}
-        self._active_obstacles = []
         road_cfg = self.config.get("road", {})
         self.road_x_min = road_cfg.get("x_min", 0.0)
         self.road_x_max = road_cfg.get("x_max", self.total_distance)
         self.road_y_min = road_cfg.get("y_min", 0)
         self.road_y_max = road_cfg.get("y_max", 500)
-        self._load_obstacles()
+        # recreate manager and reload obstacles
+        self.obstacle_manager = ObstacleManager()
+        self.obstacle_manager.load_from_list(self.obstacles_data)
         self._set_state(GameState.INIT)
 
     # ---------------- God Mode -----------------------------------------
@@ -120,22 +116,6 @@ class GameEngine:
         """
         if self.state == GameState.GOD_MODE:
             self._set_state(GameState.PAUSED)
-
-    # ---------------- Loading and insertion ----------------------------
-    def _load_obstacles(self):
-        for obs in self.obstacles_data:
-            try:
-                self.tree.insert(obs["x"], obs["y"], obs)
-                self._active_obstacles.append(obs)
-                sprite_path = obs.get("sprite")
-                if sprite_path and pygame.get_init():
-                    try:
-                        surf = pygame.image.load(sprite_path).convert_alpha()
-                        self._sprite_cache[sprite_path] = surf
-                    except Exception as e:
-                        print(f"Warning: Could not load sprite {sprite_path}: {e}")
-            except Exception as e:
-                print(f"Warning: Could not load obstacle {obs}: {e}")
 
     # ---------------- Validation and placement API ---------------------
     def get_road_bounds(self) -> Tuple[float, float, int, int]:
@@ -178,15 +158,8 @@ class GameEngine:
             return False
 
         try:
-            self.tree.insert(x, y, obs)
-            self._active_obstacles.append(obs)
-            sprite = obs.get("sprite")
-            if sprite and pygame.get_init() and sprite not in self._sprite_cache:
-                try:
-                    self._sprite_cache[sprite] = pygame.image.load(sprite).convert_alpha()
-                except Exception as e:
-                    print(f"Warning: Could not load sprite {sprite}: {e}")
-            
+            if not self.obstacle_manager.spawn_obstacle(obs):
+                return False
             if callable(self.on_obstacle_placed):
                 try:
                     self.on_obstacle_placed(obs)
@@ -197,10 +170,10 @@ class GameEngine:
             
         except Exception as e:
             print(f"Error placing obstacle: {e}")
-            # rollback best-effort
+            # rollback best-effort via manager
             try:
-                self._active_obstacles = [o for o in self._active_obstacles if o is not obs]
-                self.tree.delete(x, y)
+                # try to remove if partially inserted
+                self.obstacle_manager.remove_by_coords(x, y)
             except Exception:
                 pass
             return False
@@ -244,11 +217,7 @@ class GameEngine:
             self.remove_obstacle_by_coords(x, y)
 
     def remove_obstacle_by_coords(self, x: float, y: int):
-        try:
-            self.tree.delete(x, y)
-        except Exception as e:
-            print(f"Warning: Could not delete from tree: {e}")
-        self._active_obstacles = [o for o in self._active_obstacles if not (o["x"] == x and o["y"] == y)]
+        self.obstacle_manager.remove_by_coords(x, y)
 
     # ---------------- Hitbox helpers -----------------------------------
     def _get_car_hitbox(self) -> pygame.Rect:
@@ -265,8 +234,9 @@ class GameEngine:
         x = int(obs["x"])
         y = int(obs["y"])
         sprite_path = obs.get("sprite")
-        if sprite_path and sprite_path in self._sprite_cache:
-            surf = self._sprite_cache[sprite_path]
+        cache = self.obstacle_manager.get_sprite_cache()
+        if sprite_path and sprite_path in cache:
+            surf = cache[sprite_path]
             w, h = surf.get_size()
             return pygame.Rect(x, y, w, h)
 
@@ -276,23 +246,14 @@ class GameEngine:
 
     # ---------------- Visibility and utilities -------------------------
     def get_visible_obstacles(self) -> List[Dict]:
-        min_x = self.car.x
-        max_x = self.car.x + self.screen_width
-        return [o for o in self._active_obstacles if min_x <= o["x"] <= max_x]
+        return self.obstacle_manager.get_visible(self.car.x, self.screen_width)
 
     def spawn_obstacle(self, obs: Dict):
         """
         Backwards-compatible spawn (no validation). Prefer place_obstacle when placing via UI.
         """
         try:
-            self.tree.insert(obs["x"], obs["y"], obs)
-            self._active_obstacles.append(obs)
-            sprite = obs.get("sprite")
-            if sprite and pygame.get_init() and sprite not in self._sprite_cache:
-                try:
-                    self._sprite_cache[sprite] = pygame.image.load(sprite).convert_alpha()
-                except Exception as e:
-                    print(f"Warning: Could not load sprite {sprite}: {e}")
+            self.obstacle_manager.spawn_obstacle(obs)
         except Exception as e:
             print(f"Warning: Could not spawn obstacle: {e}")
 
