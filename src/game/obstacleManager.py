@@ -1,6 +1,6 @@
 from typing import List, Dict, Tuple, Optional
 import pygame
-from model.avlTree import avlTree
+from src.model.avlTree import avlTree
 
 class ObstacleManager:
     """
