@@ -13,12 +13,14 @@ START_BTN_RECT_NAME = "START_BTN_RECT"
 PAUSE_BTN_RECT_NAME = "PAUSE_BTN_RECT"
 TREE_BTN_RECT_NAME = "TREE_BTN_RECT"
 GOD_BTN_RECT_NAME = "GOD_BTN_RECT"
+RESET_BTN_RECT_NAME = "RESET_BTN_RECT"
 
 # Button keys (camelCase)
 START_KEY = "start"
 PAUSE_KEY = "pause"
 TREE_KEY = "tree"
 GOD_KEY = "god"
+RESET_KEY = "reset"
 
 
 def loadButtonSprites(path_map: Dict[str, str],
@@ -55,7 +57,7 @@ def buildButtonRects(sprites: Dict[str, Optional[pygame.Surface]],
     """
     x, y = start_pos
     rects: Dict[str, pygame.Rect] = {}
-    keys = [START_KEY, PAUSE_KEY, TREE_KEY, GOD_KEY]
+    keys = [START_KEY, PAUSE_KEY, TREE_KEY, GOD_KEY, RESET_KEY]
 
     for key in keys:
         surf = sprites.get(key)
@@ -122,6 +124,7 @@ def drawButtons(surface: pygame.Surface,
         PAUSE_KEY: (PAUSE_BTN_RECT_NAME, (200, 180, 60), "Pause"),
         TREE_KEY: (TREE_BTN_RECT_NAME, (120, 160, 200), "Tree"),
         GOD_KEY: (GOD_BTN_RECT_NAME, (200, 100, 160), "God"),
+        RESET_KEY: (RESET_BTN_RECT_NAME, (200, 160, 80), "Reset")
     }
 
     for key, (rect_name, color, label) in mapping.items():

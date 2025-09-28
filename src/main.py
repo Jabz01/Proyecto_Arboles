@@ -1,5 +1,3 @@
-# src/main.py
-
 import pygame
 from gui.mainWindow import mainWindow
 def main():
@@ -8,7 +6,7 @@ def main():
         mainWindow()
     except Exception as e:
         print(f"[Error] El juego encontró un problema: {e}")
-    finally:
+    finally: 
         pygame.quit()
 
 if __name__ == "__main__":

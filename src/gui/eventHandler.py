@@ -1,105 +1,162 @@
 # src/gui/eventHandler.py
 from typing import Dict, Callable, Tuple, Optional
 import pygame
+from gui.spriteUtils import getCachedSprite
 from game.gameEngine import GameEngine, GameState
-
-# Note: rect names expected are UPPER_SNAKE_CASE strings as produced by build_button_rects
-# Example keys in rects dict: 'START_BTN_RECT','PAUSE_BTN_RECT','TREE_BTN_RECT','GOD_BTN_RECT'
+from gui.preview import getSnappedPosition, validatePreview, screenToWorld
 
 
-def handle_key_event(event: pygame.event.Event, engine: GameEngine) -> None:
-    """
-    Handle keyboard events that affect engine state or the car.
+# en src/gui/eventHandler.py
 
-    Args:
-        event: pygame Event (expecting KEYDOWN).
-        engine: GameEngine instance to control.
-    """
+def handleKeyEvent(event: pygame.event.Event, engine: GameEngine) -> None:
     if event.type != pygame.KEYDOWN:
         return
 
-    if event.key == pygame.K_RETURN:
-        # Start from INIT or PAUSED -> RUNNING
-        engine.start()
-    elif event.key == pygame.K_ESCAPE:
-        # Quit handling is left to caller/main loop
-        pass
-    elif event.key == pygame.K_SPACE and engine.state == GameState.RUNNING:
-        if hasattr(engine.car, "jump"):
-            engine.car.jump()
+    lane_height = int((engine.road_y_max - engine.road_y_min) / 8)
 
-
-def handle_mouse_event(event: pygame.event.Event,
-                       engine: GameEngine,
-                       ui_state: Dict,
-                       rects: Dict[str, pygame.Rect]) -> None:
-    """
-    Handle mouse clicks for HUD buttons and obstacle placement.
-
-    Args:
-        event: pygame Event (expecting MOUSEBUTTONDOWN with button 1).
-        engine: GameEngine instance to modify (start, pause, place obstacles).
-        ui_state: mutable dict with keys expected by this handler:
-            - preview_valid: bool
-            - preview_type: str
-            - preview_visible: bool
-            - preview_world: (x, y)
-            - screenToWorld: callable(mouse_x, mouse_y, engine) -> ((wx, wy), in_game_bool)
-        rects: dict mapping UPPER_SNAKE_CASE rect names to pygame.Rect (from build_button_rects).
-    """
-    if event.type != pygame.MOUSEBUTTONDOWN or event.button != 1:
-        return
-
-    mx, my = event.pos
-
-    start_rect = rects.get("START_BTN_RECT")
-    pause_rect = rects.get("PAUSE_BTN_RECT")
-    tree_rect = rects.get("TREE_BTN_RECT")
-    god_rect = rects.get("GOD_BTN_RECT")
-
-    # Button clicks
-    if start_rect and start_rect.collidepoint(mx, my):
-        engine.start()
-        # If currently in GOD_MODE, exit god mode (policy: Start resumes running)
+    if event.key == pygame.K_UP:
+        engine.car.move_up(lane_height, min_y=int(engine.road_y_min))
+    elif event.key == pygame.K_DOWN:
+        engine.car.move_down(lane_height, max_y=int(engine.road_y_max))
+    elif event.key == pygame.K_SPACE:
+        engine.car.jump()
+    elif event.key == pygame.K_RETURN:
         if engine.state == GameState.GOD_MODE:
             engine.exit_god_mode()
+        engine.start()
+    elif event.key == pygame.K_ESCAPE:
+        engine.pause()
+
+
+
+
+def handleEvent(event: pygame.event.Event,
+                engine: GameEngine,
+                ui_state: Dict,
+                rects: Dict[str, pygame.Rect]) -> None:
+    """
+    Generic event handler. Call this once per pygame event.
+
+    Expected ui_state keys:
+        - screenToWorld: callable(mouse_x, mouse_y, engine) -> ((wx, wy), in_game_bool)
+        - palette: list of templates (each template is dict with keys 'type','damage','sprite')
+        - palette_index: int
+        - selected_template: current template dict
+        - preview_visible: bool (updated here)
+        - preview_world: (wx, wy) (updated here)
+        - preview_valid: bool (updated here)
+        - getSnappedPosition: optional callable to compute snapped pos (fallbacks to gui.preview.getSnappedPosition)
+    """
+    # Keyboard events
+    if event.type == pygame.KEYDOWN:
+        handleKeyEvent(event, engine)
         return
 
-    if pause_rect and pause_rect.collidepoint(mx, my):
-        engine.toggle_pause()
+    # Mouse motion -> update preview state when in GOD_MODE
+    if event.type == pygame.MOUSEMOTION:
+        mx, my = event.pos
+        if engine.state == GameState.GOD_MODE:
+            screenToWorldFn = ui_state.get("screenToWorld", None)
+            if callable(screenToWorldFn):
+                world, in_game = screenToWorldFn(mx, my, engine)
+                ui_state["preview_world"] = world
+                ui_state["preview_visible"] = bool(in_game)
+                # snapped and validation
+                snappedFn = ui_state.get("getSnappedPosition", getSnappedPosition)
+                snapped = snappedFn(world, engine)
+                tpl = ui_state.get("selected_template", {})
+                ui_state["preview_valid"] = engine.can_place_obstacle(float(snapped[0]), int(snapped[1]), obstacle_type=tpl.get("type", "cone"))
         return
 
-    if tree_rect and tree_rect.collidepoint(mx, my):
-        # UI-level handling for AVL view should be triggered here (caller can subscribe)
-        print("[UI] Tree button pressed")
+    # Mouse wheel -> cycle palette when in GOD_MODE (wrap-around)
+    if event.type == pygame.MOUSEWHEEL:
+        if engine.state == GameState.GOD_MODE:
+            palette = ui_state.get("palette", [])
+            if not palette:
+                return
+            # pygame: event.y = +1 (up), -1 (down). Wheel up -> previous item
+            delta = event.y
+            idx = int(ui_state.get("palette_index", 0))
+            idx = (idx - delta) % len(palette)
+            ui_state["palette_index"] = idx
+            ui_state["selected_template"] = palette[idx]
         return
 
-    if god_rect and god_rect.collidepoint(mx, my):
-        if engine.state != GameState.GOD_MODE:
-            engine.enter_god_mode()
-        else:
-            engine.exit_god_mode()
-        return
+    # Mouse button down (left click) -> buttons and placement
+    if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+        mx, my = event.pos
 
-    # Click inside game area -> placement attempt when in GOD_MODE
-    screenToWorld = ui_state.get("screenToWorld")
-    if not callable(screenToWorld):
-        return
+        start_rect = rects.get("START_BTN_RECT")
+        pause_rect = rects.get("PAUSE_BTN_RECT")
+        tree_rect = rects.get("TREE_BTN_RECT")
+        god_rect = rects.get("GOD_BTN_RECT")
+        reset_rect = rects.get("RESET_BTN_RECT")
+        
+        if reset_rect and reset_rect.collidepoint(mx, my):
+            # Reiniciar motor y posicion del coche
+            engine.reset()
+            engine.car.x = float(engine.road_x_min)
+            engine.car.y = int(engine.road_y_min)
+            engine.start()
+            return
 
-    (world, in_game) = screenToWorld(mx, my, engine)
-    if engine.state == GameState.GOD_MODE and in_game and ui_state.get("preview_valid", False):
-        world_x, world_y = world if isinstance(world, tuple) else (world, 0)
-        obs = {
-            "x": float(world_x),
-            "y": int(world_y),
-            "type": ui_state.get("preview_type", "cone"),
-            "sprite": f"assets/sprites/{ui_state.get('preview_type','cone')}.png",
-            "damage": 1
-        }
-        inserted = engine.place_obstacle(obs)
-        if inserted:
-            print("[UI] obstacle placed:", obs)
-            # exit god mode and remain paused; user must press Start to resume
-            engine.exit_god_mode()
-            ui_state["preview_visible"] = False
-            ui_state["preview_valid"] = False
+        # START: exit GOD_MODE if active, then start
+        if start_rect and start_rect.collidepoint(mx, my):
+            if engine.state == GameState.GOD_MODE:
+                engine.exit_god_mode()
+            engine.start()
+            return
+
+        # PAUSE: exit GOD_MODE if active, then toggle pause
+        if pause_rect and pause_rect.collidepoint(mx, my):
+            if engine.state == GameState.GOD_MODE:
+                engine.exit_god_mode()
+            engine.toggle_pause()
+            return
+
+        # TREE: exit GOD_MODE if active, then notify (UI-level)
+        if tree_rect and tree_rect.collidepoint(mx, my):
+            if engine.state == GameState.GOD_MODE:
+                engine.exit_god_mode()
+            # UI-level behaviour for tree view; caller may react to this print or use callback
+            print("[UI] Tree button pressed")
+            return
+
+        # GOD: enter god mode if not already; if already in GOD_MODE do nothing (persist)
+        if god_rect and god_rect.collidepoint(mx, my):
+            if engine.state != GameState.GOD_MODE:
+                engine.enter_god_mode()
+            else:
+                # explicitly persist; do nothing
+                pass
+            return
+
+        # Otherwise: click inside game area -> attempt placement when in GOD_MODE
+        screenToWorldFn = ui_state.get("screenToWorld", None)
+        if not callable(screenToWorldFn):
+            return
+        world, in_game = screenToWorldFn(mx, my, engine)
+        if engine.state == GameState.GOD_MODE and in_game:
+            # compute snapped pos and validate
+            snappedFn = ui_state.get("getSnappedPosition", getSnappedPosition)
+            snapped = snappedFn(world, engine)
+            tpl = ui_state.get("selected_template", {})
+            valid = engine.can_place_obstacle(float(snapped[0]), int(snapped[1]), obstacle_type=tpl.get("type", "cone"))
+            if valid:
+                obs = {
+                    "x": float(snapped[0]),
+                    "y": int(snapped[1]),
+                    "type": tpl.get("type", "cone"),
+                    "sprite": tpl.get("sprite"),
+                    "damage": tpl.get("damage", 1)
+                }
+                inserted = engine.place_obstacle(obs)
+                if inserted:
+                    print("[UI] obstacle placed:", obs)
+                    # IMPORTANT: per rules, do NOT exit GOD_MODE when placement occurs
+                    ui_state["preview_visible"] = False
+                    ui_state["preview_valid"] = False
+            else:
+                # invalid placement feedback is left to UI rendering (preview_valid False)
+                ui_state["preview_valid"] = False
+        return

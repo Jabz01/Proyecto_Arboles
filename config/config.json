@@ -1,10 +1,23 @@
 {
     "config": {
-        "speed": 10,                  
+        "speed": 100,                  
         "jumpDistance": 50,          
         "carColor": "#FF0000",        
-        "totalDistance": 2000,       
-        "refreshMS": 16              
+        "totalDistance": 4000,       
+        "refreshMS": 200,
+        "obstaclePalette": [
+            {   "type": "bondiola",     "damage": 10, "sprite": "assets/sprites/bondiola.png" },
+            {   "type": "cone",         "damage": 8,  "sprite": "assets/sprites/cone.png" },
+            {   "type": "hole",         "damage": 15, "sprite": "assets/sprites/hole.png" },
+            {   "type": "hollowKnight", "damage": 20, "sprite": "assets/sprites/hollowKnight.png" },
+            {   "type": "hornet",       "damage": 18, "sprite": "assets/sprites/hornet.png" },
+            {   "type": "mario",        "damage": 25, "sprite": "assets/sprites/mario.png" },
+            {   "type": "oil",          "damage": 6,  "sprite": "assets/sprites/oil.png" },
+            {   "type": "rock",         "damage": 10, "sprite": "assets/sprites/rock.png" },
+            {   "type": "theLog",       "damage": 14, "sprite": "assets/sprites/theLog.png" },
+            {   "type": "tiedPerson",   "damage": 22, "sprite": "assets/sprites/tiedPerson.png" }
+                
+        ]         
     },
     "coment": {
         "_comment": "y positions for 500px / 8",
@@ -12,7 +25,7 @@
     },
 
     "obstacles": [
-        { "x": 150,  "y": 31,  "type": "bondiola",     "damage": 10, "sprite": "assets/sprites/bondiola.png" },
+        { "x": 1500,  "y": 31,  "type": "bondiola",     "damage": 10, "sprite": "assets/sprites/bondiola.png" },
         { "x": 450,  "y": 156, "type": "cone",         "damage": 8,  "sprite": "assets/sprites/cone.png" },
         { "x": 600,  "y": 218, "type": "hole",         "damage": 15, "sprite": "assets/sprites/hole.png" },
         { "x": 750,  "y": 281, "type": "hollowKnight", "damage": 20, "sprite": "assets/sprites/hollowKnight.png" },
@@ -21,7 +34,13 @@
         { "x": 1200, "y": 468, "type": "oil",          "damage": 6,  "sprite": "assets/sprites/oil.png" },
         { "x": 1500, "y": 93,  "type": "rock",         "damage": 10, "sprite": "assets/sprites/rock.png" },
         { "x": 1650, "y": 156, "type": "theLog",       "damage": 14, "sprite": "assets/sprites/theLog.png" },
-        { "x": 1800, "y": 218, "type": "tiedPerson",   "damage": 22, "sprite": "assets/sprites/tiedPerson.png" }
+        { "x": 1800, "y": 218, "type": "tiedPerson",   "damage": 22, "sprite": "assets/sprites/tiedPerson.png" },
+        
+        { "x": 2000,  "y": 31,  "type": "bondiola",     "damage": 10, "sprite": "assets/sprites/bondiola.png" },
+        { "x": 2500,  "y": 156,  "type": "bondiola",     "damage": 10, "sprite": "assets/sprites/bondiola.png" },
+        { "x": 2800,  "y": 218,  "type": "bondiola",     "damage": 10, "sprite": "assets/sprites/bondiola.png" },
+        { "x": 3500,  "y": 406,  "type": "bondiola",     "damage": 10, "sprite": "assets/sprites/bondiola.png" }
     ]
+    
 
 }

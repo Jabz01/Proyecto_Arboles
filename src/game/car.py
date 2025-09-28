@@ -39,20 +39,23 @@ class Car:
         bright_sprite.blit(bright_overlay, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)  # blit(): draw one surface over another
         return bright_sprite
 
-    def move_up(self, lane_height: int):
-        """Moves the car up by one lane."""
-        self.y -= lane_height
-        self.rect.y = self.y
+    def move_up(self, lane_height: int, min_y: int = 0):
+        """Moves the car up by one lane and clamps to min_y."""
+        self.y = max(min_y, self.y - lane_height)
+        if hasattr(self, "rect"):
+            self.rect.y = int(self.y)
 
-    def move_down(self, lane_height: int):
-        """Moves the car down by one lane."""
-        self.y += lane_height
-        self.rect.y = self.y
+    def move_down(self, lane_height: int, max_y: int = 500):
+        """Moves the car down by one lane and clamps to max_y."""
+        self.y = min(max_y, self.y + lane_height)
+        if hasattr(self, "rect"):
+            self.rect.y = int(self.y)
 
     def jump(self):
-        """Initiates a jump with temporary invulnerability."""
-        self.is_jumping = True
-        self.jump_remaining = self.jump_distance
+        """Initiates a jump with temporary invulnerability (keeps existing jump logic)."""
+        if not self.is_jumping:
+            self.is_jumping = True
+            self.jump_remaining = self.jump_distance
 
     def update(self):
         """
