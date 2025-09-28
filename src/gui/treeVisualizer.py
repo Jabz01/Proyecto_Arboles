@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import networkx as nx
+from networkx.drawing.nx_pydot import graphviz_layout
 from model.avlTree import avlTree, avlNode
 
 def _add_edges(G, node: avlNode):
@@ -66,7 +67,7 @@ def show_tree(tree: avlTree):
         return
 
     G = _build_graph(tree)
-    pos = nx.spring_layout(G)
+    pos = graphviz_layout(G, prog="dot")
     plt.figure(figsize=(10, 8))
     nx.draw(G, pos, with_labels=True, arrows=False, node_size=2000, 
             node_color="lightblue", font_size=10, font_weight="bold")
