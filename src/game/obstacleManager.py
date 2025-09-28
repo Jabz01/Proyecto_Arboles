@@ -1,6 +1,6 @@
 # src/game/obstacleManager.py
-from typing import List, Dict, Optional, Tuple
 import pygame
+from typing import List, Dict, Optional, Tuple
 from model.avlTree import avlTree
 from gui.spriteUtils import loadSprite, SPRITE_CACHE
 

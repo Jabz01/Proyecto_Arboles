@@ -7,6 +7,7 @@ from gui.hud import drawHUD
 from gui.preview import drawPreview, screenToWorld, getSnappedPosition
 from gui.eventHandler import handleEvent
 from gui.spriteUtils import loadSprite, getCachedSprite
+from gui.treeVisualizer import show_tree
 from utils.configLoader import load_config
 
 # Layout constants
@@ -47,11 +48,10 @@ def mainWindow():
 
     # Initialize engine with camera_offset (anchor on screen)
     engine = GameEngine(config_path="config/config.json", screen_width=SCREEN_WIDTH, camera_offset=CAR_SCREEN_X)
-    # después de engine = GameEngine(...)
-    engine.reset()                        # recarga config y obstacles, deja estado INIT
+    engine.reset()                        
     engine.car.x = float(engine.road_x_min)
     engine.car.y = int(engine.road_y_min)
-    engine.start()                        # pasa a RUNNING y permite que update(dt) mueva el coche
+    engine.start()                        
 
     # Anchor used by UI/preview/drawing (read from engine so both agree)
     car_screen_x = engine.camera_offset
@@ -95,6 +95,12 @@ def mainWindow():
         for ev in pygame.event.get():
             if ev.type == pygame.QUIT:
                 running = False
+            elif ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
+                tree_btn = button_rects.get("tree")
+                if tree_btn and tree_btn.collidepoint(ev.pos):
+                    show_tree(engine.obstacle_manager.tree)
+                else:
+                    handleEvent(ev, engine, ui_state, button_rects)
             else:
                 handleEvent(ev, engine, ui_state, button_rects)
 

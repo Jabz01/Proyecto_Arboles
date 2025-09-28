@@ -2,6 +2,7 @@
 from typing import Dict, Callable, Tuple, Optional
 import pygame
 from gui.spriteUtils import getCachedSprite
+from gui.treeVisualizer import show_tree
 from game.gameEngine import GameEngine, GameState
 from gui.preview import getSnappedPosition, validatePreview, screenToWorld
 
@@ -118,8 +119,12 @@ def handleEvent(event: pygame.event.Event,
         if tree_rect and tree_rect.collidepoint(mx, my):
             if engine.state == GameState.GOD_MODE:
                 engine.exit_god_mode()
-            # UI-level behaviour for tree view; caller may react to this print or use callback
-            print("[UI] Tree button pressed")
+            # Try to display the tree using the tree visualizer.
+            try:
+                # engine.obstacle_manager holds the AVL tree as .tree
+                show_tree(engine.obstacle_manager.tree)
+            except Exception as e:
+                print(f"[Error] Could not show tree: {e}")
             return
 
         # GOD: enter god mode if not already; if already in GOD_MODE do nothing (persist)
