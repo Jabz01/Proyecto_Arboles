@@ -106,7 +106,6 @@ def mainWindow():
 
         # Update engine with delta-time
         engine.update(dt)
-
         # Clear and draw background
         screen.fill((0, 0, 0))
         if background:
@@ -130,7 +129,10 @@ def mainWindow():
                 pygame.draw.rect(screen, (200, 100, 100), pygame.Rect(sx, sy, 24, 24))
 
         # Draw car anchored at car_screen_x
-        car_sprite = getattr(engine.car, "sprite", None)
+        if getattr(engine.car, 'is_jumping', False) and getattr(engine.car, 'jump_remaining', 0) > 0:
+            car_sprite = getattr(engine.car, "jump_sprite", None)
+        else:
+            car_sprite = getattr(engine.car, "normal_sprite", None)
         car_draw_y = int(getattr(engine.car, "y", 0) - engine.road_y_min + HUD_HEIGHT)
         if car_sprite:
             screen.blit(car_sprite, (car_screen_x, car_draw_y))

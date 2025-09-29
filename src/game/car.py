@@ -7,10 +7,8 @@ class Car:
     Handles movement, jumping, collisions, and rendering.
     """
     INVULNERABILITY_SECONDS = 0.5  
+    
     def __init__(self, x: int, y: int, sprite_path: str, config: dict, energy_max: int = 100):
-        """
-        Initializes the Car object.
-        """
         self.x = x
         self.y = y
         self.speed = config["speed"]
@@ -20,89 +18,98 @@ class Car:
         self.energy_max = energy_max
 
         # Load normal and jump sprites
-        self.normal_sprite = pygame.image.load(sprite_path).convert_alpha()  # load(): loads image, convert_alpha(): keeps transparency returning a surface type that works to pygame 
-        self.jump_sprite = self._create_brighter_sprite(self.normal_sprite)
+        self.normal_sprite = pygame.image.load(sprite_path).convert_alpha()
+        self.jump_sprite = self._create_brighter_sprite_subtle(self.normal_sprite)
         self.sprite = self.normal_sprite
-        self.rect = self.sprite.get_rect(topleft=(self.x, self.y))  # get_rect(): give a rectangle of the sprite taking in the top left the positión in x and y
+        self.rect = self.sprite.get_rect(topleft=(self.x, self.y))
 
         # Jump state
         self.is_jumping = False
         self.jump_remaining = 0
 
-    def _create_brighter_sprite(self, base_sprite: pygame.Surface) -> pygame.Surface:
+    def _create_brighter_sprite_subtle(self, base_sprite: pygame.Surface) -> pygame.Surface:
         """
-        Make the car brighter if it is jumping
+        Crear sprite brillante sutil que solo afecte el contenido, no el fondo transparente
         """
-        bright_sprite = base_sprite.copy()  # copy(): duplicates surface
-        bright_overlay = pygame.Surface(bright_sprite.get_size(), flags=pygame.SRCALPHA)  # Surface(): create new surface, SRCALPHA: allows transparency
-        bright_overlay.fill((255, 255, 255, 80))  # fill(): fill with color RGBA
-        bright_sprite.blit(bright_overlay, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)  # blit(): draw one surface over another
-        return bright_sprite
+        bright_sprite = base_sprite.copy()
+        w, h = bright_sprite.get_size()
+        
+        # Método 1: Overlay blanco suave solo en píxeles no transparentes
+        bright_overlay = pygame.Surface((w, h), pygame.SRCALPHA)
+        
+        # Obtener los datos de píxeles para trabajar solo con píxeles visibles
+        for x in range(w):
+            for y in range(h):
+                pixel = base_sprite.get_at((x, y))
+                if pixel[3] > 0:  # Si el pixel no es completamente transparente
+                    # Aplicar brillo suave
+                    r, g, b, a = pixel
+                    # Aumentar brillo sin saturar
+                    new_r = min(255, r + 40)
+                    new_g = min(255, g + 40) 
+                    new_b = min(255, b + 40)
+                    bright_overlay.set_at((x, y), (new_r, new_g, new_b, a))
+        
+        return bright_overlay
 
     def move_up(self, lane_height: int, min_y: int = 0):
-        """Moves the car up by one lane and clamps to min_y."""
         self.y = max(min_y, self.y - lane_height)
         if hasattr(self, "rect"):
             self.rect.y = int(self.y)
 
     def move_down(self, lane_height: int, max_y: int = 500):
-        """Moves the car down by one lane and clamps to max_y."""
         self.y = min(max_y, self.y + lane_height)
         if hasattr(self, "rect"):
             self.rect.y = int(self.y)
 
     def jump(self):
-        """Initiates a jump with temporary invulnerability (keeps existing jump logic)."""
         if not self.is_jumping:
             self.is_jumping = True
             self.jump_remaining = self.jump_distance
 
-    def update(self):
-        """
-        Updates the car's position.
-        Handles jump movement and resets jump state when complete.
-        """
+    def update(self, delta_time: float = 0.0):
         if self.is_jumping:
-            step = min(self.jump_remaining, self.speed)  # min(): returns the smaller of two values
+            step = self.speed * delta_time if delta_time > 0 else min(self.jump_remaining, self.speed)
             self.x += step
             self.jump_remaining -= step
             if self.jump_remaining <= 0:
                 self.is_jumping = False
         else:
-            self.x += self.speed
+            movement = self.speed * delta_time if delta_time > 0 else self.speed
+            self.x += movement
 
         self.rect.x = self.x
         
     def collide(self, obstacle: dict) -> bool:
-        """
-        Handle collision with an obstacle, applying damage only if not jumping
-        and not within an invulnerability window.
-        """
-        now = time.time()  # time(): current time in seconds since epoch
-        if self.is_jumping:
+        now = time.time()
+
+        if self.is_jumping and self.jump_remaining > 0:
             return False
 
-        # still invulnerable after previous hit
-        if now - getattr(self, "_last_hit_time", 0.0) < self.INVULNERABILITY_SECONDS:  # getattr(): get attribute with default value
+        if now - getattr(self, "_last_hit_time", 0.0) < self.INVULNERABILITY_SECONDS:
             return False
 
-        damage = obstacle.get("damage", 0)  # get(): returns dict value with default
+        damage = obstacle.get("damage", 0)
         energy_before = self.energy
-        self.energy = max(0, self.energy - damage)  # max(): ensures energy doesn’t go below 0
+        self.energy = max(0, self.energy - damage)
         damaged = self.energy < energy_before
+        
         if damaged:
             self._last_hit_time = now
-            print(f"💥 Collision with {obstacle.get('type', 'unknown')}, energy left: {self.energy}")  
+            print(f"💥 Collision with {obstacle.get('type', 'unknown')}, energy left: {self.energy}")
+        
         return damaged
-
+    
     def draw(self, surface: pygame.Surface):
         """
-        Draws the car sprite on the given surface.
-        Uses bright sprite if jumping.
+        Draws the car sprite with dynamic brightness during jump
         """
-        current_sprite = self.jump_sprite if self.is_jumping else self.normal_sprite
-        surface.blit(current_sprite, (self.x, self.y))  # blit(): draw sprite onto another surface
+        if self.is_jumping and self.jump_remaining > 0:
+            current_sprite = self.jump_sprite
+        else:
+            current_sprite = self.normal_sprite
+            
+        surface.blit(current_sprite, (self.x, self.y))
 
     def is_alive(self) -> bool:
-        """Returns True if the car still has energy."""
         return self.energy > 0

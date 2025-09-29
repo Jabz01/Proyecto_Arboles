@@ -1,7 +1,7 @@
 {
     "config": {
         "speed": 100,                  
-        "jumpDistance": 50,          
+        "jumpDistance": 200,          
         "carColor": "#FF0000",        
         "totalDistance": 4000,       
         "refreshMS": 200,
