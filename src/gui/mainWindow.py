@@ -111,8 +111,8 @@ def mainWindow():
         else:
             pygame.draw.rect(screen, (50, 50, 50), pygame.Rect(0, HUD_HEIGHT, SCREEN_WIDTH, GAME_AREA_HEIGHT))
 
-        # Draw visible obstacles using a correct world-left that accounts for camera_offset
-        # world_left = car.x - camera_offset
+              # Draw visible obstacles using baseline -> top = baseline - sprite_h,
+        # then convert world top to screen y using road_y_min and HUD_HEIGHT.
         world_left = float(engine.car.x) - float(engine.camera_offset)
         visible: List[Dict] = engine.obstacle_manager.get_visible(world_left, SCREEN_WIDTH)
         cache = engine.get_sprite_cache()
@@ -120,22 +120,47 @@ def mainWindow():
             sprite_path = obs.get("sprite")
             sprite = cache.get(sprite_path) if sprite_path else None
             sx = int(obs["x"] - engine.car.x + car_screen_x)
-            sy = int(obs["y"] - engine.road_y_min + HUD_HEIGHT)
+
+            obs_baseline = float(obs["y"])
+            if sprite:
+                sh = sprite.get_height()
+                # top in world coords (baseline -> top)
+                top_world = obs_baseline - sh
+            else:
+                sh = 24
+                top_world = obs_baseline - sh
+
+            # Convert world top to screen y
+            sy = int(top_world - engine.road_y_min + HUD_HEIGHT)
+
+            # Clamp so sprite does not render above HUD or off-screen
+            min_sy = HUD_HEIGHT  # top of game area
+            sy = max(min_sy, sy)
+
             if sprite:
                 screen.blit(sprite, (sx, sy))
             else:
-                pygame.draw.rect(screen, (200, 100, 100), pygame.Rect(sx, sy, 24, 24))
+                pygame.draw.rect(screen, (200, 100, 100), pygame.Rect(sx, sy, 24, sh))
 
-        # Draw car anchored at car_screen_x
+        # Draw car anchored at car_screen_x using baseline semantics and clamp top
         if getattr(engine.car, 'is_jumping', False) and getattr(engine.car, 'jump_remaining', 0) > 0:
             car_sprite = getattr(engine.car, "jump_sprite", None)
         else:
             car_sprite = getattr(engine.car, "normal_sprite", None)
-        car_draw_y = int(getattr(engine.car, "y", 0) - engine.road_y_min + HUD_HEIGHT)
+
+        car_baseline = float(getattr(engine.car, "y", 0))
         if car_sprite:
+            ch = car_sprite.get_height()
+            car_top_world = car_baseline - ch
+            car_draw_y = int(car_top_world - engine.road_y_min + HUD_HEIGHT)
+            car_draw_y = max(HUD_HEIGHT, car_draw_y)
             screen.blit(car_sprite, (car_screen_x, car_draw_y))
         else:
-            pygame.draw.rect(screen, (0, 120, 200), pygame.Rect(car_screen_x, car_draw_y, 64, 32))
+            rect_h = 32
+            car_top_world = car_baseline - rect_h
+            car_draw_y = int(car_top_world - engine.road_y_min + HUD_HEIGHT)
+            car_draw_y = max(HUD_HEIGHT, car_draw_y)
+            pygame.draw.rect(screen, (0, 120, 200), pygame.Rect(car_screen_x, car_draw_y, 64, rect_h))
 
         # Draw preview ghost when visible
         if ui_state.get("preview_visible", False):

@@ -124,12 +124,12 @@ def draw_pause_overlay(surface, rects, sprites, font, ui_state: Dict):
     # Instructions block (pixel font smaller)
     txt_font = load_pixel_font(12)
     lines = [
-        "CONTROLES: Arrow Up/Down = Cambiar carril, Space = Saltar",
+        "CONTROLES: Flechas hacia arriba/abajo = Cambiar carril, Barra espaciadora = Saltar",
         "COMO SE PIERDE: Si la energia llega a 0 al chocar con obstaculos",
-        "COMO SE GANA: Llegar a la distancia total (ver config -> totalDistance)",
-        "GOD MODE: Activa para colocar obstaculos; pulsa el boton GOD y usa el raton",
-        "ARBOL AVL: Obstaculos gestionados en un AVL (ver Tree button para visualizar)",
-        "Pulsa Start para comenzar"
+        "COMO SE GANA: Llegar a la distancia total",
+        "GOD MODE: Activa para colocar obstaculos; pulsa el boton DIOS y usa el raton",
+        "ARBOL AVL: Obstaculos gestionados en un AVL (ver el boton ARBOL para visualizar)",
+        "Pulsa INICIAR para comenzar"
     ]
     start_y = surface.get_height() // 2 - 60
     for i, line in enumerate(lines):

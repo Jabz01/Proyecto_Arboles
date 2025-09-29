@@ -30,7 +30,6 @@ class GameEngine:
         self.screen_width = screen_width
         self.camera_offset = camera_offset
         self.total_distance = self.config.get("totalDistance", 1000)
-
         # state, prev state and hooks
         self.state = GameState.INIT
         self._prev_state: Optional[str] = None
@@ -42,8 +41,9 @@ class GameEngine:
         road_cfg = self.config.get("road", {})
         self.road_x_min = road_cfg.get("x_min", 0.0)
         self.road_x_max = road_cfg.get("x_max", self.total_distance)
-        self.road_y_min = road_cfg.get("y_min", 0)
+        self.road_y_min = road_cfg.get("y_min", 31)
         self.road_y_max = road_cfg.get("y_max", 500)
+        self.lane_height = int((self.road_y_max - self.road_y_min) // 8)
 
         # obstacle manager
         self.obstacle_manager = ObstacleManager(sprite_cache=SPRITE_CACHE)
@@ -108,12 +108,16 @@ class GameEngine:
         return (self.road_x_min, self.road_x_max, self.road_y_min, self.road_y_max)
 
     def can_place_obstacle(self, x: float, y: int, margin: float = 4.0, obstacle_type: str = "cone") -> bool:
+        # y is baseline; ensure baseline is within road bounds
         if not (self.road_x_min <= x <= self.road_x_max and self.road_y_min <= y <= self.road_y_max):
             return False
 
         default_size_map = {"cone": (24, 24), "hole": (40, 16)}
         cw, ch = default_size_map.get(obstacle_type, (24, 24))
-        cand_rect = pygame.Rect(int(x - margin), int(y - margin), cw + int(margin * 2), ch + int(margin * 2))
+
+        # candidate rect top in world coords
+        cand_top = int(y - ch - margin)
+        cand_rect = pygame.Rect(int(x - margin), cand_top, cw + int(margin * 2), ch + int(margin * 2))
 
         for o in self.obstacle_manager.get_active_obstacles():
             o_rect = self._get_obstacle_hitbox(o)
@@ -238,22 +242,28 @@ class GameEngine:
                 w, h = (64, 32)
         except Exception:
             w, h = (64, 32)
-        return pygame.Rect(int(self.car.x), int(self.car.y), w, h)
+        top_world = float(getattr(self.car, "y", 0)) - h
+        top_world = max(top_world, float(self.road_y_min))
+        top = int(top_world)
+        return pygame.Rect(int(self.car.x), top, w, h)
 
     def _get_obstacle_hitbox(self, obs: Dict) -> Optional[pygame.Rect]:
-        x = int(obs["x"])
-        y = int(obs["y"])
+        try:
+            x = int(obs["x"])
+            baseline = float(obs["y"])
+        except Exception:
+            return None
         sprite_path = obs.get("sprite")
         cache = self.obstacle_manager.get_sprite_cache()
         if sprite_path and sprite_path in cache:
             surf = cache[sprite_path]
             w, h = surf.get_size()
-            return pygame.Rect(x, y, w, h)
-
-        default_size_map = {"cone": (24, 24), "hole": (40, 16)}
-        w, h = default_size_map.get(obs.get("type"), (48, 48))
-        return pygame.Rect(x, y, w, h)
-
+        else:
+            default_size_map = {"cone": (24, 24), "hole": (40, 16)}
+            w, h = default_size_map.get(obs.get("type"), (48, 48))
+        top_world = baseline - h
+        top_world = max(top_world, float(self.road_y_min))
+        return pygame.Rect(x, int(top_world), w, h)
     def get_visible_obstacles(self) -> List[Dict]:
         return self.obstacle_manager.get_visible(self.car.x, self.screen_width)
 
