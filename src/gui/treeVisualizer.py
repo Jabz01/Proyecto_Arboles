@@ -1,5 +1,7 @@
 import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
 import networkx as nx
+from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from networkx.drawing.nx_pydot import graphviz_layout
 from model.avlTree import avlTree, avlNode
 
@@ -58,6 +60,45 @@ def _get_traversals(tree: avlTree):
     levelorder(tree.root, lvl)
     return pre, ino, post, lvl
 
+def _draw_with_sprites(G, pos, tree: avlTree):
+    """
+    Draw nodes using obstacle sprites instead of plain circles.
+    """
+    ax = plt.gca()
+
+    def _traverse(node: avlNode):
+        if not node:
+            return
+        obs = getattr(node, "obstacle", None)
+        if obs:
+            sprite_path = obs.get("sprite")
+            try:
+                img = mpimg.imread(sprite_path)
+                imagebox = OffsetImage(img, zoom=1)  # Adjust zoom to scale sprite
+                ab = AnnotationBbox(imagebox, pos[node.key], frameon=False)
+                ax.add_artist(ab)
+                # Add coordinates text under sprite
+                x, y = node.key
+                ax.text(
+                    pos[node.key][0],
+                    pos[node.key][1] - 30,
+                    f"({int(x)}, {int(y)})",
+                    ha="center",
+                    va="top",
+                    fontsize=8,
+                    color="black",
+                )
+            except Exception as e:
+                print(f"[Warn] Could not load sprite {sprite_path}: {e}")
+                nx.draw_networkx_nodes(G, pos, nodelist=[node.key],
+                                       node_color="lightblue", node_size=1200)
+                nx.draw_networkx_labels(G, pos, labels={node.key: str(node.key)}, font_size=8)
+
+        _traverse(node.left)
+        _traverse(node.right)
+
+    _traverse(tree.root)
+
 def show_tree(tree: avlTree):
     """
     Visualize the AVL tree and its traversals using matplotlib and networkx.
@@ -69,8 +110,10 @@ def show_tree(tree: avlTree):
     G = _build_graph(tree)
     pos = graphviz_layout(G, prog="dot")
     plt.figure(figsize=(10, 8))
-    nx.draw(G, pos, with_labels=True, arrows=False, node_size=2000, 
-            node_color="lightblue", font_size=10, font_weight="bold")
+
+    # Draw only edges, nodes will be custom-drawn with sprites
+    nx.draw_networkx_edges(G, pos, arrows=False)
+    _draw_with_sprites(G, pos, tree)
 
     # Traversals
     pre, ino, post, lvl = _get_traversals(tree)
