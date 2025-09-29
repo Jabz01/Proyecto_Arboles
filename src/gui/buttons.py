@@ -108,7 +108,8 @@ def drawButton(surface: pygame.Surface,
 def drawButtons(surface: pygame.Surface,
                 sprites: Dict[str, Optional[pygame.Surface]],
                 rects: Dict[str, pygame.Rect],
-                font: pygame.font.Font) -> None:
+                font: pygame.font.Font,
+                hide_start: bool = False) -> None:
     """
     Draw all HUD buttons. Uses the rects returned by buildButtonRects and the sprites loaded
     by loadButtonSprites (which uses spriteUtils).
@@ -118,9 +119,9 @@ def drawButtons(surface: pygame.Surface,
         sprites: mapping 'start','pause','tree','god' to pygame.Surface or None.
         rects: mapping UPPER_SNAKE_CASE rect names to pygame.Rect.
         font: pygame Font for fallback labels.
+        hide_start: if True, do not draw the Start button (used when overlays control Start).
     """
     mapping = {
-        START_KEY: (START_BTN_RECT_NAME, (60, 180, 80), "Start"),
         PAUSE_KEY: (PAUSE_BTN_RECT_NAME, (200, 180, 60), "Pause"),
         TREE_KEY: (TREE_BTN_RECT_NAME, (120, 160, 200), "Tree"),
         GOD_KEY: (GOD_BTN_RECT_NAME, (200, 100, 160), "God"),
@@ -128,6 +129,8 @@ def drawButtons(surface: pygame.Surface,
     }
 
     for key, (rect_name, color, label) in mapping.items():
+        if hide_start and key == START_KEY:
+            continue
         rect = rects.get(rect_name)
         if rect is None:
             continue

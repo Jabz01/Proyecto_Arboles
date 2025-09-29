@@ -50,8 +50,7 @@ def mainWindow():
     engine = GameEngine(config_path="config/config.json", screen_width=SCREEN_WIDTH, camera_offset=CAR_SCREEN_X)
     engine.reset()                        
     engine.car.x = float(engine.road_x_min)
-    engine.car.y = int(engine.road_y_min)
-    engine.start()                        
+    engine.car.y = int(engine.road_y_min)        
 
     # Anchor used by UI/preview/drawing (read from engine so both agree)
     car_screen_x = engine.camera_offset
@@ -60,8 +59,7 @@ def mainWindow():
     engine.car.x = float(engine.road_x_min)
     engine.car.y = int(engine.road_y_min)
 
-    if engine.car.x < engine.total_distance:
-        engine.start()
+
 
 
     # Load button sprites and place them aligned to the right

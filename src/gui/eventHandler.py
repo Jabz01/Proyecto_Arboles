@@ -87,6 +87,27 @@ def handleEvent(event: pygame.event.Event,
     if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
         mx, my = event.pos
 
+        # Check overlay buttons first (temporary rects published by HUD)
+        overlay_buttons = ui_state.get("overlay_buttons", {})
+        if overlay_buttons:
+            start_ov = overlay_buttons.get("start")
+            reset_ov = overlay_buttons.get("reset")
+            if start_ov and start_ov.collidepoint(mx, my):
+                # remove overlay and start/resume game
+                ui_state.pop("overlay_buttons", None)
+                # if starting from INIT or PAUSED -> start running
+                if engine.state == GameState.GOD_MODE:
+                    engine.exit_god_mode()
+                engine.start()
+                return
+            if reset_ov and reset_ov.collidepoint(mx, my):
+                ui_state.pop("overlay_buttons", None)
+                engine.reset()
+                engine.car.x = float(engine.road_x_min)
+                engine.car.y = int(engine.road_y_min)
+                engine.start()
+                return
+
         start_rect = rects.get("START_BTN_RECT")
         pause_rect = rects.get("PAUSE_BTN_RECT")
         tree_rect = rects.get("TREE_BTN_RECT")
