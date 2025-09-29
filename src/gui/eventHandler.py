@@ -1,6 +1,7 @@
 # src/gui/eventHandler.py
 from typing import Dict, Callable, Tuple, Optional
 import pygame
+from model.avlTree import avlTree
 from gui.spriteUtils import getCachedSprite
 from gui.treeVisualizer import show_tree
 from game.gameEngine import GameEngine, GameState
@@ -119,10 +120,21 @@ def handleEvent(event: pygame.event.Event,
         if tree_rect and tree_rect.collidepoint(mx, my):
             if engine.state == GameState.GOD_MODE:
                 engine.exit_god_mode()
-            # Try to display the tree using the tree visualizer.
             try:
-                # engine.obstacle_manager holds the AVL tree as .tree
-                show_tree(engine.obstacle_manager.tree)
+                # Pause game
+                engine.pause()
+
+                # Calculate world_left for current camera
+                world_left = float(engine.car.x) - float(engine.camera_offset)
+                visible = engine.obstacle_manager.get_visible(world_left, engine.screen_width)
+
+                # Build a temporary AVL with only visible obstacles
+                temp_tree = avlTree()
+                for obs in visible:
+                    temp_tree.insert(float(obs["x"]), int(obs["y"]), obs)
+
+                # Show only the visible subtree
+                show_tree(temp_tree)
             except Exception as e:
                 print(f"[Error] Could not show tree: {e}")
             return
